@@ -8,7 +8,12 @@ def generate_code():
     letters = string.ascii_uppercase
     digits = string.digits
     if has_dot is True:
-        code = "{}{}.{}{}.{}{}.{}{}".format(
+        is_dash = random.random() > 0.5
+        if is_dash:
+            format_string = "{}{}-{}{}-{}{}-{}{}"
+        else:
+            format_string = "{}{}.{}{}.{}{}.{}{}"
+        code = format_string.format(
             random.choice(letters),
             random.choice(letters),
             random.choice(digits),
