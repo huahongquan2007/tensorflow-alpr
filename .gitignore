@@ -1,4 +1,8 @@
 src/bgs
+src/bgs_new
+src/backups
+src/test
+src/weights.npz
 .idea
 
 # Byte-compiled / optimized / DLL files
