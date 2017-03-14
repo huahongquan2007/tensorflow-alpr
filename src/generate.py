@@ -44,7 +44,6 @@ def generate_code():
     length = random.choice([8, 9, 10])
     # length = random.choice([10])
     has_dot = random.random() > 0.5
-    has_dot = False
     if has_dot is True:
         is_dash = random.random() > 0.5
         if is_dash:
