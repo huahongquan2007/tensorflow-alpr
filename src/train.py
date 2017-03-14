@@ -73,10 +73,10 @@ def code_to_vec(p, code):
 def read_data(img_glob):
     for fname in sorted(glob.glob(img_glob)):
         im = cv2.imread(fname)[:, :, 0].astype(numpy.float32) / 255.
-        #code = fname.split("/")[1][9:19]
+        # code = fname.split("/")[1][9:19]
+        # p = fname.split("/")[1][20] == '1'
         code = fname.split("/")[-1].split("_")[1]
-        #p = fname.split("/")[1][20] == '1'
-        p = fname[-4]
+        p = fname[-5] == '1'
         yield im, code_to_vec(p, code)
 
 
@@ -194,7 +194,8 @@ def train(learn_rate, report_steps, batch_size, backup_steps, initial_weights=No
         assert len(params) == len(initial_weights)
         assign_ops = [w.assign(v) for w, v in zip(params, initial_weights)]
 
-    init = tf.initialize_all_variables()
+    #init = tf.initialize_all_variables()
+    init = tf.global_variables_initializer()
 
     def vec_to_plate(v):
         return "".join(common.CHARS[i] for i in v)
@@ -251,7 +252,7 @@ def train(learn_rate, report_steps, batch_size, backup_steps, initial_weights=No
             batch_iter = enumerate(read_batches(batch_size))
             for batch_idx, (batch_xs, batch_ys) in batch_iter:
                 do_batch()
-                if batch_idx % backup_steps == 0:
+                if batch_idx % backup_steps == 0 and batch_idx > 0:
                     cur_time = datetime.now().strftime("%Y%m%d_%H%M%S")
                     backup_name = "backups/{}_{}_weights.npz".format(cur_time, batch_idx)
                     print("+ Save models to ", backup_name)

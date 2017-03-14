@@ -41,8 +41,8 @@ def make_char_ims(font_path, output_height):
 
 
 def generate_code():
-    #length = random.choice([8, 9, 10])
-    length = random.choice([10])
+    length = random.choice([8, 9, 10])
+    # length = random.choice([10])
     has_dot = random.random() > 0.5
     has_dot = False
     if has_dot is True:
@@ -212,7 +212,7 @@ def generate_plate(font_height, char_ims):
 def generate_bg(num_bg_images):
     found = False
     while not found:
-        file_name = "bgs/{:08d}.jpg".format(random.randint(0, num_bg_images - 1))
+        file_name = "/home/ubuntu/bgs/{:08d}.jpg".format(random.randint(0, num_bg_images - 1))
         img = cv2.imread(file_name, cv2.IMREAD_GRAYSCALE)
         if img is not None:
             bg = cv2.imread(file_name, cv2.IMREAD_GRAYSCALE) / 255.
@@ -263,7 +263,7 @@ def load_fonts(folder_path):
 
 def generate_ims():
     fonts, font_char_imgs = load_fonts(FONT_DIR)
-    num_bg_images = len(os.listdir("bgs"))
+    num_bg_images = len(os.listdir("/home/ubuntu/bgs"))
     while True:
         yield generate_im(font_char_imgs[random.choice(fonts)], num_bg_images)
 
