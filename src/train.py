@@ -289,7 +289,7 @@ if __name__ == "__main__":
     if not os.path.exists("backups"):
         os.mkdir("backups")
 
-    train(learn_rate=0.0001,
+    train(learn_rate=0.001,
           report_steps=20,
           batch_size=50,
           backup_steps=2000,
