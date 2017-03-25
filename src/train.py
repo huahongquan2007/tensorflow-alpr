@@ -54,7 +54,7 @@ def refine_code(code):
     while len(code) < 10:
         code += "_"
 
-    return code
+    return code.upper()
 
 
 def code_to_vec(p, code):
@@ -139,9 +139,9 @@ def get_loss(y, y_):
     # Calculate the loss from digits being incorrect.  Don't count loss from
     # digits that are in non-present plates.
     digits_loss = tf.nn.softmax_cross_entropy_with_logits(
-        tf.reshape(y[:, 1:],
+        logits=tf.reshape(y[:, 1:],
                    [-1, len(common.CHARS)]),
-        tf.reshape(y_[:, 1:],
+        labels=tf.reshape(y_[:, 1:],
                    [-1, len(common.CHARS)]))
     digits_loss = tf.reshape(digits_loss, [-1, 10])
     digits_loss = tf.reduce_sum(digits_loss, 1)
@@ -150,7 +150,7 @@ def get_loss(y, y_):
 
     # Calculate the loss from presence indicator being wrong.
     presence_loss = tf.nn.sigmoid_cross_entropy_with_logits(
-        y[:, :1], y_[:, :1])
+        logits=y[:, :1], labels=y_[:, :1])
     presence_loss = 10 * tf.reduce_sum(presence_loss)
 
     return digits_loss, presence_loss, digits_loss + presence_loss
@@ -289,7 +289,7 @@ if __name__ == "__main__":
     if not os.path.exists("backups"):
         os.mkdir("backups")
 
-    train(learn_rate=0.001,
+    train(learn_rate=0.01,
           report_steps=20,
           batch_size=50,
           backup_steps=2000,
