@@ -208,10 +208,57 @@ def generate_plate(font_height, char_ims):
     return plate, rounded_rect(out_shape, radius), code.replace(" ", "")
 
 
+def generate_real_plate(list_real_data):
+    import json
+    data = None
+    while data is None:
+        file_name = random.choice(list_real_data)
+        with open(file_name) as fp:
+            data_str = fp.read()
+            data = json.loads(data_str)
+    p1, p2, p3, p4 = data['p1'], data['p2'], data['p3'], data['p4']
+    top = min(p1['y'], p4['y'])
+    bottom = max(p2['y'], p3['y'])
+    left = min(p1['x'], p2['x'])
+    right = max(p1['x'], p2['x'])
+
+    if right - left > 3 * (bottom - top):
+        padding_x = int((right - left) / 4)
+        width = padding_x * 2 + (right - left)
+        height = int(OUTPUT_SHAPE[0] * width / OUTPUT_SHAPE[1])
+        padding_y = int((height - (bottom - top))/2)
+    else:
+        padding_y = int((bottom - top) / 2)
+        height = padding_y * 2 + (bottom - top)
+        width = int(OUTPUT_SHAPE[1] * height / OUTPUT_SHAPE[0])
+        padding_x = int((width - (right - left))/2)
+
+    image = cv2.imread(data['path'], cv2.IMREAD_GRAYSCALE)
+
+    shift_width = random.randint(-int(padding_x / 3), int(padding_x / 3))
+    shift_height = random.randint(-int(padding_y / 3), int(padding_y / 3))
+
+    img_height, img_width = image.shape[0], image.shape[1]
+    new_left = max(0, left - padding_x + shift_width)
+    new_right = min(img_width - 1, right + padding_x + shift_width)
+    new_top = max(0, top - padding_y + shift_height)
+    new_bottom = min(img_height - 1, bottom + padding_y + shift_height)
+
+    plate = numpy.copy(image[new_top: new_bottom, new_left: new_right]) / 255.
+    mask = numpy.zeros_like(image)
+    cv2.fillPoly(mask, numpy.array([[
+                        (p1['x'], p1['y']),
+                        (p2['x'], p2['y']),
+                        (p3['x'], p3['y']),
+                        (p4['x'], p4['y'])]]), 1.0)
+    plate_mask = numpy.copy(mask[new_top: new_bottom, new_left: new_right])
+    return plate, plate_mask, data['name']
+
+
 def generate_bg(num_bg_images):
     found = False
     while not found:
-        file_name = "/home/ubuntu/bgs/{:08d}.jpg".format(random.randint(0, num_bg_images - 1))
+        file_name = "bgs/{:08d}.jpg".format(random.randint(0, num_bg_images - 1))
         img = cv2.imread(file_name, cv2.IMREAD_GRAYSCALE)
         if img is not None:
             bg = cv2.imread(file_name, cv2.IMREAD_GRAYSCALE) / 255.
@@ -225,24 +272,34 @@ def generate_bg(num_bg_images):
     return bg
 
 
-def generate_im(char_ims, num_bg_images):
+def generate_im(char_ims, num_bg_images, list_real_data):
     bg = generate_bg(num_bg_images)
 
-    plate, plate_mask, code = generate_plate(FONT_HEIGHT, char_ims)
+    if random.random() > 0.5:
+        plate, plate_mask, code = generate_plate(FONT_HEIGHT, char_ims)
 
-    M, out_of_bounds = make_affine_transform(
-                        from_shape=plate.shape,
-                        to_shape=bg.shape,
-                        min_scale=0.6,
-                        max_scale=0.875,
-                        rotation_variation=1.0,
-                        scale_variation=1.5,
-                        translation_variation=1.2)
+        M, out_of_bounds = make_affine_transform(
+                            from_shape=plate.shape,
+                            to_shape=bg.shape,
+                            min_scale=0.6,
+                            max_scale=0.875,
+                            rotation_variation=1.0,
+                            scale_variation=1.5,
+                            translation_variation=1.2)
 
-    plate = cv2.warpAffine(plate, M, (bg.shape[1], bg.shape[0]))
-    plate_mask = cv2.warpAffine(plate_mask, M, (bg.shape[1], bg.shape[0]))
+        plate = cv2.warpAffine(plate, M, (bg.shape[1], bg.shape[0]))
+        plate_mask = cv2.warpAffine(plate_mask, M, (bg.shape[1], bg.shape[0]))
+        out = plate * plate_mask + bg * (1.0 - plate_mask)
+    else:
+        plate, plate_mask, code = generate_real_plate(list_real_data)
+        plate = cv2.resize(plate, (bg.shape[1], bg.shape[0]))
+        plate_mask = cv2.resize(plate_mask, (bg.shape[1], bg.shape[0]))
+        out_of_bounds = False
 
-    out = plate * plate_mask + bg * (1.0 - plate_mask)
+        if random.random() > 0.5:
+            out = plate
+        else:
+            out = plate * plate_mask + bg * (1.0 - plate_mask)
 
     out = cv2.resize(out, (OUTPUT_SHAPE[1], OUTPUT_SHAPE[0]))
 
@@ -262,11 +319,20 @@ def load_fonts(folder_path):
 
 def generate_ims():
     fonts, font_char_imgs = load_fonts(FONT_DIR)
-    num_bg_images = len(os.listdir("/home/ubuntu/bgs"))
+    # num_bg_images = len(os.listdir("/home/ubuntu/bgs"))
+    num_bg_images = len(os.listdir("bgs"))
+    list_real_data = [os.path.join("data/toll-plaza-a/labels", name) for name in os.listdir("data/toll-plaza-a/labels")]
     while True:
-        yield generate_im(font_char_imgs[random.choice(fonts)], num_bg_images)
+        yield generate_im(font_char_imgs[random.choice(fonts)], num_bg_images, list_real_data)
 
 if __name__ == "__main__":
+    # list_real_data = [os.path.join("data/toll-plaza-a/labels", name) for name in os.listdir("data/toll-plaza-a/labels")]
+    # fonts, font_char_imgs = load_fonts(FONT_DIR)
+    # # num_bg_images = len(os.listdir("/home/ubuntu/bgs"))
+    # num_bg_images = len(os.listdir("bgs"))
+    # for i in range(10):
+    #     generate_im(font_char_imgs[random.choice(fonts)], num_bg_images, list_real_data)
+    #     generate_real_plate(list_real_data)
     os.mkdir("test")
     im_gen = itertools.islice(generate_ims(), int(sys.argv[1]))
     for img_idx, (im, c, p) in enumerate(im_gen):
