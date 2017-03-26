@@ -5,6 +5,8 @@ import math
 import cv2
 import itertools
 import sys
+import json
+from datetime import datetime
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
@@ -208,14 +210,8 @@ def generate_plate(font_height, char_ims):
     return plate, rounded_rect(out_shape, radius), code.replace(" ", "")
 
 
-def generate_real_plate(list_real_data):
-    import json
-    data = None
-    while data is None:
-        file_name = random.choice(list_real_data)
-        with open(file_name) as fp:
-            data_str = fp.read()
-            data = json.loads(data_str)
+def generate_real_plate(list_real_data, real_image_data):
+    data = random.choice(list_real_data)
     p1, p2, p3, p4 = data['p1'], data['p2'], data['p3'], data['p4']
     top = min(p1['y'], p4['y'])
     bottom = max(p2['y'], p3['y'])
@@ -233,7 +229,10 @@ def generate_real_plate(list_real_data):
         width = int(OUTPUT_SHAPE[1] * height / OUTPUT_SHAPE[0])
         padding_x = int((width - (right - left))/2)
 
-    image = cv2.imread(data['path'], cv2.IMREAD_GRAYSCALE)
+    if data['path'] in real_image_data:
+        image = real_image_data[data['path']]
+    else:
+        image = cv2.imread(data['path'], cv2.IMREAD_GRAYSCALE)
 
     shift_width = random.randint(-int(padding_x / 3), int(padding_x / 3))
     shift_height = random.randint(-int(padding_y / 3), int(padding_y / 3))
@@ -272,10 +271,10 @@ def generate_bg(num_bg_images):
     return bg
 
 
-def generate_im(char_ims, num_bg_images, list_real_data):
+def generate_im(char_ims, num_bg_images, list_real_data, real_image_data):
     bg = generate_bg(num_bg_images)
 
-    if random.random() > 0.5:
+    if random.random() > 0.8:
         plate, plate_mask, code = generate_plate(FONT_HEIGHT, char_ims)
 
         M, out_of_bounds = make_affine_transform(
@@ -291,12 +290,12 @@ def generate_im(char_ims, num_bg_images, list_real_data):
         plate_mask = cv2.warpAffine(plate_mask, M, (bg.shape[1], bg.shape[0]))
         out = plate * plate_mask + bg * (1.0 - plate_mask)
     else:
-        plate, plate_mask, code = generate_real_plate(list_real_data)
+        plate, plate_mask, code = generate_real_plate(list_real_data, real_image_data)
         plate = cv2.resize(plate, (bg.shape[1], bg.shape[0]))
         plate_mask = cv2.resize(plate_mask, (bg.shape[1], bg.shape[0]))
         out_of_bounds = False
 
-        if random.random() > 0.5:
+        if random.random() > 0.8:
             out = plate
         else:
             out = plate * plate_mask + bg * (1.0 - plate_mask)
@@ -319,20 +318,23 @@ def load_fonts(folder_path):
 
 def generate_ims():
     fonts, font_char_imgs = load_fonts(FONT_DIR)
-    # num_bg_images = len(os.listdir("/home/ubuntu/bgs"))
     num_bg_images = len(os.listdir("bgs"))
-    list_real_data = [os.path.join("data/toll-plaza-a/labels", name) for name in os.listdir("data/toll-plaza-a/labels")]
+    list_real_data_path = [os.path.join("data/toll-plaza-a/labels", name) for name in os.listdir("data/toll-plaza-a/labels")]
+    list_real_data = list()
+    for data_path in list_real_data_path:
+        with open(data_path) as fp:
+            data_str = fp.read()
+            data = json.loads(data_str)
+            list_real_data.append(data)
+    list_image_path = [os.path.join("data/toll-plaza-a/raw", name) for name in os.listdir("data/toll-plaza-a/raw")]
+    real_image_data = dict()
+    for image_path in list_image_path:
+        real_image_data[image_path] = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     while True:
-        yield generate_im(font_char_imgs[random.choice(fonts)], num_bg_images, list_real_data)
+        yield generate_im(font_char_imgs[random.choice(fonts)], num_bg_images, list_real_data, real_image_data)
+
 
 if __name__ == "__main__":
-    # list_real_data = [os.path.join("data/toll-plaza-a/labels", name) for name in os.listdir("data/toll-plaza-a/labels")]
-    # fonts, font_char_imgs = load_fonts(FONT_DIR)
-    # # num_bg_images = len(os.listdir("/home/ubuntu/bgs"))
-    # num_bg_images = len(os.listdir("bgs"))
-    # for i in range(10):
-    #     generate_im(font_char_imgs[random.choice(fonts)], num_bg_images, list_real_data)
-    #     generate_real_plate(list_real_data)
     os.mkdir("test")
     im_gen = itertools.islice(generate_ims(), int(sys.argv[1]))
     for img_idx, (im, c, p) in enumerate(im_gen):
